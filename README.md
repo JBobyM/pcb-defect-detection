@@ -1,15 +1,18 @@
 # PCB Defect Detection
 
-Trained a YOLOv8m model to detect defects on printed circuit boards. It covers 9 defect types and hits **84.7% mAP50** on the validation set after 100 epochs — solid enough for real production-line use.
+Trained a YOLOv8m model to detect defects on printed circuit boards. It covers 9 defect types and hits **84.7% mAP50** on the validation set after 100 epochs, solid enough for real production-line use.
 
-![Validation predictions](runs/pcb_defect_detection/val_batch0_pred.jpg)
-*Model predictions on unseen validation images. Each box is labeled with defect type and confidence score.*
+| Ground truth | Model predictions |
+|:---:|:---:|
+| ![Labels](runs/pcb_defect_detection/val_batch0_labels.jpg) | ![Predictions](runs/pcb_defect_detection/val_batch0_pred.jpg) |
+
+*Left: the annotated ground truth. Right: what the model actually predicts on unseen images. Each box shows defect type and confidence score.*
 
 ---
 
 ## Background
 
-PCB defects usually happen during manufacturing — etching gone slightly wrong, dust contamination, a drill bit going slightly off-center. Catching them early saves a lot of money. The traditional approach is manual visual inspection, which is slow and error-prone, especially for small defects under magnification.
+PCB defects usually happen during manufacturing. Etching gone slightly wrong, dust contamination, a drill bit going slightly off-center. Catching them early saves a lot of money. The traditional approach is manual visual inspection, which is slow and error-prone, especially for small defects under magnification.
 
 This project trains a single-stage object detector to flag defects automatically. The model runs fast enough to be used inline during production, and it outputs bounding boxes with confidence scores so you can tune the trade-off between false positives and false negatives depending on how critical your application is.
 
@@ -17,7 +20,7 @@ This project trains a single-stage object detector to flag defects automatically
 
 ## Dataset
 
-Uses the publicly available **DsPCBSD+** dataset — a collection of PCB images annotated with 9 defect categories. The dataset comes with both YOLO-format and COCO-format annotations, so it's usable with most detection frameworks without any conversion.
+Uses the publicly available **DsPCBSD+** dataset, a collection of PCB images annotated with 9 defect categories. The dataset comes with both YOLO-format and COCO-format annotations, so it's usable with most detection frameworks without any conversion.
 
 ![Label distribution](runs/pcb_defect_detection/labels.jpg)
 *Distribution of defect instances across the training set. Spur (SP) is the most common; Short Circuit (SH) the rarest.*
@@ -47,34 +50,33 @@ The 9 defect classes:
 | Precision | 81.6% |
 | Recall | 79.4% |
 
+mAP@0.5 is the main number to look at: it measures detection accuracy at a 50% overlap threshold between predicted and ground truth boxes. 84.7% is strong for a 9-class industrial defect detector. Precision (81.6%) tells you how often a detection is actually a real defect, while recall (79.4%) tells you how many real defects the model actually catches. The mAP@0.5:0.95 score (49.9%) is stricter, averaging across tighter overlap thresholds, and is harder to push high when defects are small.
+
 Per-class breakdown:
 
 | Defect | Precision | Recall | mAP50 |
 |--------|-----------|--------|-------|
-| HB — Hole Break | 94.0% | 94.9% | 98.5% |
-| OP — Open Circuit | 82.6% | 84.0% | 89.9% |
-| SH — Short Circuit | 84.0% | 85.8% | 89.5% |
-| BMFO — Base Material Foreign Object | 82.0% | 84.1% | 87.2% |
-| SP — Spur | 86.7% | 76.2% | 85.2% |
-| MB — Mousebite | 86.2% | 77.5% | 84.5% |
-| SC — Spurious Copper | 75.8% | 76.8% | 83.2% |
-| CS — Conductor Scratch | 75.2% | 67.0% | 74.3% |
-| CFO — Copper Foreign Object | 70.6% | 65.0% | 70.4% |
+| HB (Hole Break) | 94.0% | 94.9% | 98.5% |
+| OP (Open Circuit) | 82.6% | 84.0% | 89.9% |
+| SH (Short Circuit) | 84.0% | 85.8% | 89.5% |
+| BMFO (Base Material Foreign Object) | 82.0% | 84.1% | 87.2% |
+| SP (Spur) | 86.7% | 76.2% | 85.2% |
+| MB (Mousebite) | 86.2% | 77.5% | 84.5% |
+| SC (Spurious Copper) | 75.8% | 76.8% | 83.2% |
+| CS (Conductor Scratch) | 75.2% | 67.0% | 74.3% |
+| CFO (Copper Foreign Object) | 70.6% | 65.0% | 70.4% |
 
-Hole breaks are basically a solved problem at this point. Conductor scratches and copper foreign objects are the trickiest — they're visually inconsistent across samples and the model reflects that. Short circuit detection is surprisingly strong given it has the fewest training examples.
+Hole breaks are nearly perfect because they have a very consistent visual signature: a clean circular gap. The two weakest classes, Conductor Scratch and Copper Foreign Object, are harder because they look different from image to image depending on lighting and board finish. Worth noting that Short Circuit performs near the top of the table despite having the fewest training samples, which suggests the defect is visually distinct enough that the model picks it up easily.
 
 ![Training curves](runs/pcb_defect_detection/results.png)
 *Loss and metric curves across 100 epochs. Validation mAP stabilizes around epoch 60.*
-
-![Confusion matrix](runs/pcb_defect_detection/confusion_matrix_normalized.png)
-*Normalized confusion matrix on the validation set. Most confusion happens between SC and CFO — both involve unexpected copper on the board surface.*
 
 ---
 
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/pcb-defect-detection.git
+git clone https://github.com/jbobym/pcb-defect-detection.git
 cd pcb-defect-detection
 
 python3 -m venv pcb_env
@@ -101,7 +103,7 @@ data/DsPCBSD+/
 python train.py
 ```
 
-Uses both GPUs if available (`device='0,1'`). Checkpoints save every 5 epochs to `runs/pcb_defect_detection/weights/`. The best checkpoint (by validation mAP) is saved as `best.pt`.
+Uses both GPUs if available (`device='0,1'`). Checkpoints save every 5 epochs to `runs/pcb_defect_detection/weights/`. The best checkpoint by validation mAP is saved as `best.pt`.
 
 Key hyperparameters:
 - Model: YOLOv8m pretrained on COCO
@@ -109,7 +111,7 @@ Key hyperparameters:
 - Image size: 640px, batch 16 per GPU
 - Augmentation: mosaic, mixup=0.1, copy-paste=0.1, horizontal flip
 
-No vertical flips or perspective augmentation — PCB inspection cameras are always overhead, so that kind of distortion would only hurt.
+No vertical flips or perspective augmentation. PCB inspection cameras are always overhead, so that kind of distortion would only hurt.
 
 ---
 
