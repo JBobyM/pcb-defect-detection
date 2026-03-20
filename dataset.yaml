@@ -1,0 +1,13 @@
+names:
+  0: SH
+  1: SP
+  2: SC
+  3: OP
+  4: MB
+  5: HB
+  6: CS
+  7: CFO
+  8: BMFO
+path: /work/boby/PCB_project/data/DsPCBSD+
+train: Data_YOLO/images/train
+val: Data_YOLO/images/val

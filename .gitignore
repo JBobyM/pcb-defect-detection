@@ -1,0 +1,23 @@
+# Virtual environment
+new_pcb_env/
+pcb_env/
+*.egg-info/
+
+# Dataset (too large for git — download separately)
+data/DsPCBSD+/Data_YOLO/images/
+data/DsPCBSD+/Data_COCO/train2017/
+data/DsPCBSD+/Data_COCO/val2017/
+
+# Model weights (use git-lfs or download separately)
+*.pt
+*.onnx
+!runs/pcb_defect_detection/weights/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
