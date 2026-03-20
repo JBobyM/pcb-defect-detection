@@ -1,6 +1,6 @@
 # PCB Defect Detection
 
-Trained a YOLOv8m model to detect defects on printed circuit boards. It covers 9 defect types and hits **84.7% mAP50** on the validation set after 100 epochs, solid enough for real production-line use.
+Trained an object detection model to find defects on printed circuit boards. It covers 9 defect types and hits **84.7% mAP50** on the validation set after 100 epochs, solid enough for real production-line use.
 
 | Ground truth | Model predictions |
 |:---:|:---:|
@@ -14,7 +14,10 @@ Trained a YOLOv8m model to detect defects on printed circuit boards. It covers 9
 
 PCB defects usually happen during manufacturing. Etching gone slightly wrong, dust contamination, a drill bit going slightly off-center. Catching them early saves a lot of money. The traditional approach is manual visual inspection, which is slow and error-prone, especially for small defects under magnification.
 
-This project trains a single-stage object detector to flag defects automatically. The model runs fast enough to be used inline during production, and it outputs bounding boxes with confidence scores so you can tune the trade-off between false positives and false negatives depending on how critical your application is.
+This project uses **YOLOv8m** to flag defects automatically. YOLO (You Only Look Once) is a family of real-time object detection models that process the entire image in a single pass through the network, making it much faster than older two-stage detectors without sacrificing much accuracy. The "m" variant is the medium-sized model, a good balance between speed and detection quality. It outputs bounding boxes with confidence scores so you can tune the trade-off between false positives and false negatives depending on how critical your application is.
+
+![YOLOv8 architecture](YOLOv8%20architecture.png)
+*YOLOv8 architecture. The backbone extracts features at multiple scales, the neck fuses them, and the detection head predicts boxes and class labels in a single forward pass.*
 
 ---
 
