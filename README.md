@@ -1,50 +1,94 @@
 # PCB Defect Detection
 
-Trained a YOLOv8m model to detect defects on printed circuit boards. It covers 9 defect types and hits **84.7% mAP50** on the validation set after 100 epochs — good enough to be useful in a real production line.
+Trained a YOLOv8m model to detect defects on printed circuit boards. It covers 9 defect types and hits **84.7% mAP50** on the validation set after 100 epochs — solid enough for real production-line use.
 
-The dataset is [DsPCBSD+](https://github.com/aub-mind/DsPCBSD), a public PCB defect dataset. Training ran on two RTX 3090s in parallel, taking just over 2 hours.
+![Validation predictions](runs/pcb_defect_detection/val_batch0_pred.jpg)
+*Model predictions on unseen validation images. Each box is labeled with defect type and confidence score.*
 
 ---
 
-## What it detects
+## Background
 
-| Code | Defect | mAP50 |
-|------|--------|-------|
-| HB | Hole Break | 98.5% |
-| OP | Open Circuit | 89.9% |
-| SH | Short Circuit | 89.5% |
-| BMFO | Base Material Foreign Object | 87.2% |
-| SP | Spur | 85.2% |
-| MB | Mousebite | 84.5% |
-| SC | Spurious Copper | 83.2% |
-| CS | Conductor Scratch | 74.3% |
-| CFO | Copper Foreign Object | 70.4% |
+PCB defects usually happen during manufacturing — etching gone slightly wrong, dust contamination, a drill bit going slightly off-center. Catching them early saves a lot of money. The traditional approach is manual visual inspection, which is slow and error-prone, especially for small defects under magnification.
 
-Hole breaks are almost perfectly detected. Conductor scratches and copper foreign objects are the trickiest — they're visually inconsistent and the model reflects that.
+This project trains a single-stage object detector to flag defects automatically. The model runs fast enough to be used inline during production, and it outputs bounding boxes with confidence scores so you can tune the trade-off between false positives and false negatives depending on how critical your application is.
+
+---
+
+## Dataset
+
+Uses the publicly available **DsPCBSD+** dataset — a collection of PCB images annotated with 9 defect categories. The dataset comes with both YOLO-format and COCO-format annotations, so it's usable with most detection frameworks without any conversion.
+
+![Label distribution](runs/pcb_defect_detection/labels.jpg)
+*Distribution of defect instances across the training set. Spur (SP) is the most common; Short Circuit (SH) the rarest.*
+
+The 9 defect classes:
+
+| Code | Full name |
+|------|-----------|
+| SH | Short Circuit |
+| SP | Spur |
+| SC | Spurious Copper |
+| OP | Open Circuit |
+| MB | Mousebite |
+| HB | Hole Break |
+| CS | Conductor Scratch |
+| CFO | Copper Foreign Object |
+| BMFO | Base Material Foreign Object |
+
+---
+
+## Results
+
+| Metric | Value |
+|--------|-------|
+| mAP@0.5 | **84.7%** |
+| mAP@0.5:0.95 | 49.9% |
+| Precision | 81.6% |
+| Recall | 79.4% |
+
+Per-class breakdown:
+
+| Defect | Precision | Recall | mAP50 |
+|--------|-----------|--------|-------|
+| HB — Hole Break | 94.0% | 94.9% | 98.5% |
+| OP — Open Circuit | 82.6% | 84.0% | 89.9% |
+| SH — Short Circuit | 84.0% | 85.8% | 89.5% |
+| BMFO — Base Material Foreign Object | 82.0% | 84.1% | 87.2% |
+| SP — Spur | 86.7% | 76.2% | 85.2% |
+| MB — Mousebite | 86.2% | 77.5% | 84.5% |
+| SC — Spurious Copper | 75.8% | 76.8% | 83.2% |
+| CS — Conductor Scratch | 75.2% | 67.0% | 74.3% |
+| CFO — Copper Foreign Object | 70.6% | 65.0% | 70.4% |
+
+Hole breaks are basically a solved problem at this point. Conductor scratches and copper foreign objects are the trickiest — they're visually inconsistent across samples and the model reflects that. Short circuit detection is surprisingly strong given it has the fewest training examples.
+
+![Training curves](runs/pcb_defect_detection/results.png)
+*Loss and metric curves across 100 epochs. Validation mAP stabilizes around epoch 60.*
+
+![Confusion matrix](runs/pcb_defect_detection/confusion_matrix_normalized.png)
+*Normalized confusion matrix on the validation set. Most confusion happens between SC and CFO — both involve unexpected copper on the board surface.*
 
 ---
 
 ## Setup
 
-Clone the repo, then create a virtual environment and install dependencies:
-
 ```bash
+git clone https://github.com/YOUR_USERNAME/pcb-defect-detection.git
+cd pcb-defect-detection
+
 python3 -m venv pcb_env
 source pcb_env/bin/activate
 pip install ultralytics torch torchvision pyyaml
 ```
 
-You'll also need the DsPCBSD+ dataset. Download it and place it under `data/DsPCBSD+/`. The expected structure is:
+You'll also need the DsPCBSD+ dataset. Download it and place it under `data/DsPCBSD+/`. Expected structure:
 
 ```
 data/DsPCBSD+/
 ├── Data_YOLO/
-│   ├── images/
-│   │   ├── train/
-│   │   └── val/
-│   └── labels/
-│       ├── train/
-│       └── val/
+│   ├── images/train/ and val/
+│   └── labels/train/ and val/
 └── Data_COCO/
     └── annotations/
 ```
@@ -57,16 +101,15 @@ data/DsPCBSD+/
 python train.py
 ```
 
-This trains from scratch using the config in `dataset.yaml`. It'll use both GPUs automatically if available (`device='0,1'`). Checkpoints are saved every 5 epochs under `runs/pcb_defect_detection/weights/`.
+Uses both GPUs if available (`device='0,1'`). Checkpoints save every 5 epochs to `runs/pcb_defect_detection/weights/`. The best checkpoint (by validation mAP) is saved as `best.pt`.
 
-Key settings:
-- Model: YOLOv8m (pretrained on COCO)
-- Optimizer: AdamW, lr=0.001
-- Image size: 640px
-- Batch: 16 per GPU (32 total)
-- Augmentation: mosaic, mixup, copy-paste, horizontal flip
+Key hyperparameters:
+- Model: YOLOv8m pretrained on COCO
+- Optimizer: AdamW, lr=0.001 with cosine decay
+- Image size: 640px, batch 16 per GPU
+- Augmentation: mosaic, mixup=0.1, copy-paste=0.1, horizontal flip
 
-The augmentation choices are intentional — no vertical flips or perspective warping, since PCB images are always taken from directly above.
+No vertical flips or perspective augmentation — PCB inspection cameras are always overhead, so that kind of distortion would only hurt.
 
 ---
 
@@ -80,27 +123,4 @@ results = model("path/to/pcb_image.jpg", conf=0.25)
 results[0].show()
 ```
 
-An ONNX export is also available at `runs/pcb_defect_detection/weights/best.onnx` if you need to run it outside of Python.
-
----
-
-## Results
-
-Overall on the validation set:
-
-| Metric | Value |
-|--------|-------|
-| mAP@0.5 | 84.7% |
-| mAP@0.5:0.95 | 49.9% |
-| Precision | 81.6% |
-| Recall | 79.4% |
-
-Training curves and confusion matrices are in `runs/pcb_defect_detection/`.
-
----
-
-## Notes
-
-- `yolo11n.pt` is sitting in the repo root from an earlier experiment. It wasn't used for the final training run.
-- The COCO-format annotations (`Data_COCO/`) are there if you want to fine-tune with a different framework.
-- Short circuit (SH) performs surprisingly well despite having the fewest training examples. Hole break (HB) is almost a solved problem at this point.
+An ONNX export is also available at `runs/pcb_defect_detection/weights/best.onnx` for deployment outside Python.
