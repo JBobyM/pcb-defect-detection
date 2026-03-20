@@ -6,7 +6,7 @@ Trained an object detection model to find defects on printed circuit boards. It 
 |:---:|:---:|
 | ![Labels](runs/pcb_defect_detection/val_batch0_labels.jpg) | ![Predictions](runs/pcb_defect_detection/val_batch0_pred.jpg) |
 
-*Left: the annotated ground truth. Right: what the model actually predicts on unseen images. Each box shows defect type and confidence score.*
+*Left: the annotated ground truth. Right: what the model actually predicts on unseen images. Each box shows defect type and confidence score. For example, every hole break (HB) detected in the bottom-right panel carries a 0.9 confidence score, meaning the model is 90% sure of both the defect type and its exact location on the board.*
 
 ---
 
