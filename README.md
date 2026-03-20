@@ -46,10 +46,6 @@ The 9 defect classes:
 
 ## Results
 
-<table>
-<tr>
-<td>
-
 | Metric | Value |
 |--------|-------|
 | mAP@0.5 | **84.7%** |
@@ -57,20 +53,9 @@ The 9 defect classes:
 | Precision | 81.6% |
 | Recall | 79.4% |
 
-</td>
-<td>
-
 mAP@0.5 is the main number to look at: it measures detection accuracy at a 50% overlap threshold between predicted and ground truth boxes. 84.7% is strong for a 9-class industrial defect detector. Precision (81.6%) tells you how often a detection is actually a real defect, while recall (79.4%) tells you how many real defects the model actually catches. The mAP@0.5:0.95 score (49.9%) is stricter, averaging across tighter overlap thresholds, and is harder to push high when defects are small.
 
-</td>
-</tr>
-</table>
-
 Per-class breakdown:
-
-<table>
-<tr>
-<td>
 
 | Defect | Precision | Recall | mAP50 |
 |--------|-----------|--------|-------|
@@ -84,14 +69,7 @@ Per-class breakdown:
 | CS (Conductor Scratch) | 75.2% | 67.0% | 74.3% |
 | CFO (Copper Foreign Object) | 70.6% | 65.0% | 70.4% |
 
-</td>
-<td>
-
 Hole breaks are nearly perfect because they have a very consistent visual signature: a clean circular gap. The two weakest classes, Conductor Scratch and Copper Foreign Object, are harder because they look different from image to image depending on lighting and board finish. Worth noting that Short Circuit performs near the top of the table despite having the fewest training samples, which suggests the defect is visually distinct enough that the model picks it up easily.
-
-</td>
-</tr>
-</table>
 
 ![Training curves](runs/pcb_defect_detection/results.png)
 *Loss and metric curves across 100 epochs. Validation mAP stabilizes around epoch 60.*
