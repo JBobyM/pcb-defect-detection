@@ -116,6 +116,34 @@ Key hyperparameters:
 
 No vertical flips or perspective augmentation. PCB inspection cameras are always overhead, so that kind of distortion would only hurt.
 
+**Loss function**
+
+YOLOv8 optimizes three losses simultaneously. The box loss uses CIoU (Complete Intersection over Union), which penalizes not just the overlap between predicted and ground truth boxes but also differences in aspect ratio and center distance. The classification loss is Binary Cross-Entropy, and the third component is Distribution Focal Loss (DFL), which improves box localization by predicting a probability distribution over coordinates rather than a single fixed value. The final loss is a weighted sum of the three, with box loss weighted at 7.5 and classification at 0.5, reflecting that localizing defects accurately matters more than classifying them.
+
+The total loss is a weighted sum of three components:
+
+$$\mathcal{L} = \lambda_{box} \cdot \mathcal{L}_{CIoU} + \lambda_{cls} \cdot \mathcal{L}_{BCE} + \lambda_{dfl} \cdot \mathcal{L}_{DFL}$$
+
+With weights $\lambda_{box} = 7.5$, $\lambda_{cls} = 0.5$, $\lambda_{dfl} = 1.5$.
+
+**Box loss (CIoU)** penalizes overlap, center distance, and aspect ratio between predicted and ground truth boxes:
+
+$$\mathcal{L}_{CIoU} = 1 - IoU + \frac{\rho^2(b,\, b^{gt})}{c^2} + \alpha v$$
+
+where $\rho^2(b, b^{gt})$ is the squared Euclidean distance between box centers, $c$ is the diagonal of the smallest enclosing box, $v = \frac{4}{\pi^2}\left(\arctan\frac{w^{gt}}{h^{gt}} - \arctan\frac{w}{h}\right)^2$ measures aspect ratio consistency, and $\alpha = \frac{v}{1 - IoU + v}$.
+
+**Classification loss (BCE):**
+
+$$\mathcal{L}_{BCE} = -\left[y \log(\hat{p}) + (1 - y)\log(1 - \hat{p})\right]$$
+
+where $y \in \{0,1\}$ is the ground truth label and $\hat{p}$ is the predicted probability.
+
+**Distribution Focal Loss (DFL)** treats coordinate prediction as a distribution over discrete bins rather than a single value. For a target coordinate $y$ falling between bins $y_i$ and $y_{i+1}$:
+
+$$\mathcal{L}_{DFL} = -\left[(y_{i+1} - y)\log(S_i) + (y - y_i)\log(S_{i+1})\right]$$
+
+where $S_i$ and $S_{i+1}$ are the softmax probabilities for the two neighboring bins.
+
 ---
 
 ## Inference
