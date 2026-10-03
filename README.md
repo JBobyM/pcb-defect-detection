@@ -1,37 +1,33 @@
 # PCB Defect Detection
 
-Trained an object detection model to find defects on printed circuit boards. It covers 9 defect types and hits **84.7% mAP50** on the validation set after 100 epochs, solid enough for real production-line use.
+I trained YOLOv8m to detect nine types of defects on printed circuit boards using the DsPCBSD+ dataset. After 100 epochs, the model achieved **84.7% mAP@0.5** on the validation set.
 
 | Ground truth | Model predictions |
 |:---:|:---:|
 | ![Labels](runs/pcb_defect_detection/val_batch0_labels.jpg) | ![Predictions](runs/pcb_defect_detection/val_batch0_pred.jpg) |
 
-*Left: the annotated ground truth. Right: what the model actually predicts on unseen images. Each box shows defect type and confidence score. For example, every hole break (HB) detected in the bottom-right panel carries a 0.9 confidence score, meaning the model is 90% sure of both the defect type and its exact location on the board.*
-
----
+*Ground-truth annotations and predictions on validation images. Predicted boxes show the defect class and model confidence score. These scores are not calibrated probabilities of correct classification or exact localization.*
 
 ## Background
 
-PCB defects usually happen during manufacturing. Etching gone slightly wrong, dust contamination, a drill bit going slightly off-center. Catching them early saves a lot of money. The traditional approach is manual visual inspection, which is slow and error-prone, especially for small defects under magnification.
+PCB inspection involves finding defects such as broken connections, unwanted copper, scratches, and foreign material. Small defects can be difficult to identify consistently during visual inspection.
 
-This project uses **YOLOv8m** to flag defects automatically. YOLO (You Only Look Once) is a family of real-time object detection models built on convolutional neural networks that process the entire image in a single pass, making it much faster than older two-stage detectors without sacrificing much accuracy. The "m" variant is the medium-sized model, a good balance between speed and detection quality. It outputs bounding boxes with confidence scores so you can tune the trade-off between false positives and false negatives depending on how critical your application is.
+This project explores object detection as a way to automate that task. I used YOLOv8m, the medium-sized YOLOv8 model, starting from weights pretrained on COCO. The model predicts a bounding box and class for each detected defect.
 
 ![YOLOv8 architecture](YOLOv8%20architecture.png)
-*YOLOv8 architecture. The backbone extracts features at multiple scales, the neck fuses them, and the detection head predicts boxes and class labels in a single forward pass.*
 
----
+*The backbone extracts image features, the neck combines features across scales, and the detection head predicts bounding boxes and classes.*
 
 ## Dataset
 
-Uses the publicly available **DsPCBSD+** dataset, a collection of PCB images annotated with 9 defect categories. The dataset comes with both YOLO-format and COCO-format annotations, so it's usable with most detection frameworks without any conversion.
+The project uses **DsPCBSD+**, a publicly available PCB defect dataset with nine annotated categories. It includes annotations in both YOLO and COCO formats.
 
 ![Label distribution](runs/pcb_defect_detection/labels.jpg)
-*Distribution of defect instances across the training set. Spur (SP) is the most common; Short Circuit (SH) the rarest.*
 
-The 9 defect classes:
+*Training-set label distribution. Spur is the most common defect class, and Short Circuit is the least common.*
 
-| Code | Full name |
-|------|-----------|
+| Code | Defect |
+|---|---|
 | SH | Short Circuit |
 | SP | Spur |
 | SC | Spurious Copper |
@@ -42,39 +38,44 @@ The 9 defect classes:
 | CFO | Copper Foreign Object |
 | BMFO | Base Material Foreign Object |
 
----
-
 ## Results
 
+Validation results after 100 epochs:
+
 | Metric | Value |
-|--------|-------|
+|---|---:|
 | mAP@0.5 | **84.7%** |
 | mAP@0.5:0.95 | 49.9% |
 | Precision | 81.6% |
 | Recall | 79.4% |
 
-mAP@0.5 is the main number to look at: it measures detection accuracy at a 50% overlap threshold between predicted and ground truth boxes. 84.7% is strong for a 9-class industrial defect detector. Precision (81.6%) tells you how often a detection is actually a real defect, while recall (79.4%) tells you how many real defects the model actually catches. The mAP@0.5:0.95 score (49.9%) is stricter, averaging across tighter overlap thresholds, and is harder to push high when defects are small.
+mAP@0.5 evaluates detections at an intersection-over-union (IoU) threshold of 0.5. The stricter mAP@0.5:0.95 metric averages performance across thresholds from 0.5 to 0.95.
 
-Per-class breakdown:
+The difference between these scores shows that performance drops when tighter agreement between predicted and reference boxes is required. Precision and recall also indicate that the model still produces false detections and misses some defects.
 
-| Defect | Precision | Recall | mAP50 |
-|--------|-----------|--------|-------|
-| HB (Hole Break) | 94.0% | 94.9% | 98.5% |
-| OP (Open Circuit) | 82.6% | 84.0% | 89.9% |
-| SH (Short Circuit) | 84.0% | 85.8% | 89.5% |
-| BMFO (Base Material Foreign Object) | 82.0% | 84.1% | 87.2% |
-| SP (Spur) | 86.7% | 76.2% | 85.2% |
-| MB (Mousebite) | 86.2% | 77.5% | 84.5% |
-| SC (Spurious Copper) | 75.8% | 76.8% | 83.2% |
-| CS (Conductor Scratch) | 75.2% | 67.0% | 74.3% |
-| CFO (Copper Foreign Object) | 70.6% | 65.0% | 70.4% |
+### Results by defect class
 
-Hole breaks are nearly perfect because they have a very consistent visual signature: a clean circular gap. The two weakest classes, Conductor Scratch and Copper Foreign Object, are harder because they look different from image to image depending on lighting and board finish. Worth noting that Short Circuit performs near the top of the table despite having the fewest training samples, which suggests the defect is visually distinct enough that the model picks it up easily.
+| Defect | Precision | Recall | mAP@0.5 |
+|---|---:|---:|---:|
+| HB — Hole Break | 94.0% | 94.9% | 98.5% |
+| OP — Open Circuit | 82.6% | 84.0% | 89.9% |
+| SH — Short Circuit | 84.0% | 85.8% | 89.5% |
+| BMFO — Base Material Foreign Object | 82.0% | 84.1% | 87.2% |
+| SP — Spur | 86.7% | 76.2% | 85.2% |
+| MB — Mousebite | 86.2% | 77.5% | 84.5% |
+| SC — Spurious Copper | 75.8% | 76.8% | 83.2% |
+| CS — Conductor Scratch | 75.2% | 67.0% | 74.3% |
+| CFO — Copper Foreign Object | 70.6% | 65.0% | 70.4% |
+
+Hole Break had the highest mAP and recall. Conductor Scratch and Copper Foreign Object were the weakest classes, particularly in recall, making them priorities for further error analysis.
+
+Short Circuit performed well despite having the fewest training examples. Class frequency alone did not explain the differences in performance.
 
 ![Training curves](runs/pcb_defect_detection/results.png)
-*Loss and metric curves across 100 epochs. Validation mAP stabilizes around epoch 60.*
 
----
+*Training losses and validation metrics over 100 epochs. Validation mAP begins to level off around epoch 60.*
+
+These results describe performance on the dataset’s validation split. Production use would require evaluation on images from the intended inspection setup, including its lighting, cameras, and board types.
 
 ## Setup
 
@@ -87,18 +88,20 @@ source pcb_env/bin/activate
 pip install ultralytics torch torchvision pyyaml
 ```
 
-You'll also need the DsPCBSD+ dataset. Download it and place it under `data/DsPCBSD+/`. Expected structure:
+Download DsPCBSD+ and place it under `data/DsPCBSD+/` with the following structure:
 
-```
+```text
 data/DsPCBSD+/
 ├── Data_YOLO/
-│   ├── images/train/ and val/
-│   └── labels/train/ and val/
+│   ├── images/
+│   │   ├── train/
+│   │   └── val/
+│   └── labels/
+│       ├── train/
+│       └── val/
 └── Data_COCO/
     └── annotations/
 ```
-
----
 
 ## Training
 
@@ -106,45 +109,44 @@ data/DsPCBSD+/
 python train.py
 ```
 
-Uses both GPUs if available (`device='0,1'`). Checkpoints save every 5 epochs to `runs/pcb_defect_detection/weights/`. The best checkpoint by validation mAP is saved as `best.pt`.
+The training script is configured to use GPUs 0 and 1 (`device='0,1'`). Adjust the device setting if your machine has a different GPU configuration.
 
-Key hyperparameters:
-- Model: YOLOv8m pretrained on COCO
-- Optimizer: AdamW, lr=0.001 with cosine decay
-- Image size: 640px, batch 16 per GPU
-- Augmentation: mosaic, mixup=0.1, copy-paste=0.1, horizontal flip
+Checkpoints are saved every five epochs under `runs/pcb_defect_detection/weights/`. The best validation checkpoint is saved as `best.pt`.
 
-No vertical flips or perspective augmentation. PCB inspection cameras are always overhead, so that kind of distortion would only hurt.
+### Training configuration
 
-**Loss function**
+| Setting | Value |
+|---|---|
+| Model | YOLOv8m, pretrained on COCO |
+| Epochs | 100 |
+| Optimizer | AdamW |
+| Initial learning rate | 0.001 |
+| Learning-rate schedule | Cosine decay |
+| Image size | 640 pixels |
+| Mixup | 0.1 |
+| Copy-paste setting | 0.1 |
+| Other augmentations | Mosaic and horizontal flips |
 
-YOLOv8 optimizes three losses simultaneously. The box loss uses CIoU (Complete Intersection over Union), which penalizes not just the overlap between predicted and ground truth boxes but also differences in aspect ratio and center distance. The classification loss is Binary Cross-Entropy, and the third component is Distribution Focal Loss (DFL), which improves box localization by predicting a probability distribution over coordinates rather than a single fixed value. The final loss is a weighted sum of the three, with box loss weighted at 7.5 and classification at 0.5, reflecting that localizing defects accurately matters more than classifying them.
+Vertical flips and perspective augmentation were disabled for this training run.
 
-The total loss is a weighted sum of three components:
+### Loss function
 
-$$\mathcal{L} = \lambda_{box} \cdot \mathcal{L}_{CIoU} + \lambda_{cls} \cdot \mathcal{L}_{BCE} + \lambda_{dfl} \cdot \mathcal{L}_{DFL}$$
+Training combines bounding-box, classification, and Distribution Focal Loss (DFL) terms:
 
-With weights $\lambda_{box} = 7.5$, $\lambda_{cls} = 0.5$, $\lambda_{dfl} = 1.5$.
+$$
+\mathcal{L}
+= \lambda_{box}\mathcal{L}_{CIoU}
++ \lambda_{cls}\mathcal{L}_{BCE}
++ \lambda_{dfl}\mathcal{L}_{DFL}
+$$
 
-**Box loss (CIoU)** penalizes overlap, center distance, and aspect ratio between predicted and ground truth boxes:
+The configured weights are:
 
-$$\mathcal{L}_{CIoU} = 1 - IoU + \frac{\rho^2(b,\, b^{gt})}{c^2} + \alpha v$$
+- Bounding-box loss: 7.5
+- Classification loss: 0.5
+- DFL: 1.5
 
-where $\rho^2(b, b^{gt})$ is the squared Euclidean distance between box centers, $c$ is the diagonal of the smallest enclosing box, $v = \frac{4}{\pi^2}\left(\arctan\frac{w^{gt}}{h^{gt}} - \arctan\frac{w}{h}\right)^2$ measures aspect ratio consistency, and $\alpha = \frac{v}{1 - IoU + v}$.
-
-**Classification loss (BCE):**
-
-$$\mathcal{L}_{BCE} = -\left[y \log(\hat{p}) + (1 - y)\log(1 - \hat{p})\right]$$
-
-where $y \in \{0,1\}$ is the ground truth label and $\hat{p}$ is the predicted probability.
-
-**Distribution Focal Loss (DFL)** treats coordinate prediction as a distribution over discrete bins rather than a single value. For a target coordinate $y$ falling between bins $y_i$ and $y_{i+1}$:
-
-$$\mathcal{L}_{DFL} = -\left[(y_{i+1} - y)\log(S_i) + (y - y_i)\log(S_{i+1})\right]$$
-
-where $S_i$ and $S_{i+1}$ are the softmax probabilities for the two neighboring bins.
-
----
+CIoU accounts for box overlap, center distance, and aspect ratio. Binary cross-entropy is used for classification, while DFL supports bounding-box localization through discrete distributions.
 
 ## Inference
 
@@ -156,4 +158,10 @@ results = model("path/to/pcb_image.jpg", conf=0.25)
 results[0].show()
 ```
 
-An ONNX export is also available at `runs/pcb_defect_detection/weights/best.onnx` for deployment outside Python.
+The `conf` argument sets the detection confidence threshold. Increasing it filters out more low-confidence detections; decreasing it retains more detections, potentially including additional false positives.
+
+An ONNX export is available at:
+
+```text
+runs/pcb_defect_detection/weights/best.onnx
+```
